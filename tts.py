@@ -55,9 +55,10 @@ class TextToSpeech:
                 page = requests.get(translate_url, proxies=proxies).text
                 keys = re.findall(r"SPEECHKIT_KEY: '(.*)'", page)
                 if len(keys) > 0:
+                    logging.info("Key: " + str(keys[0]))
                     return keys[0]
             except Exception as e:
-                logging.debug("TextToSpeech: get_key: request exception " + str(e))
+                logging.debug("TextToSpeech: get_key: exception: " + str(e))
 
         logging.error("TextToSpeech: get_key: No keys found")
         return None
@@ -82,6 +83,29 @@ class TextToSpeech:
         #
         return tts_url
 
+    @staticmethod
+    def get_sound_from_url(sound_url):
+
+        attempts = 5
+        proxy_list = get_proxies()
+
+        while attempts > 0:
+
+            attempts -= 1
+
+            proxies = {
+                'https': 'http://' + proxy_list[random.randint(0, len(proxy_list))],
+            }
+
+            logging.info("Proxy used: " + str(proxies))
+            try:
+                logging.info("Downloading sound...")
+                data = requests.get(sound_url, proxies=proxies)
+                return data.content
+            except Exception as e:
+                logging.debug("TextToSpeech: get_sound_from_url: request exception " + str(e))
+        return None
+
 def get_proxies():
     proxies_url = "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt"
     data = requests.get(proxies_url)
@@ -95,9 +119,12 @@ def get_proxies():
     return proxies
 
 
-# print(get_proxies())
-# print(TextToSpeech.get_speech_url("Привет, Стас!", emotion=TextToSpeech.Emotion.good))
-import time
-for i in range(3):
-    time.sleep(1.32)
-    print(TextToSpeech.get_key())
+logging.log(logging.debug)
+
+url = TextToSpeech.get_speech_url("Привет, Стас!", emotion=TextToSpeech.Emotion.good)
+sound = TextToSpeech.get_sound_from_url(url)
+
+with open('test.mp3', 'wb') as f:
+    f.write(sound)
+
+
