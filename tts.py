@@ -70,7 +70,11 @@ class TextToSpeech:
                        emotion: str = Emotion.good,
                        fmt: str = 'mp3') -> object:
 
-        tts_key = TextToSpeech.get_key()
+        if TextToSpeech.key is not None:
+            tts_key = TextToSpeech.key
+        else:
+            tts_key = TextToSpeech.get_key()
+
         tts_url = f'https://tts.voicetech.yandex.net/generate' \
                   f'?text={text}' \
                   f'&format={fmt}' \
@@ -119,12 +123,27 @@ def get_proxies():
     return proxies
 
 
-logging.log(logging.debug)
+def convert_file_to_sound(filename):
+    with open(filename + ".txt", encoding='cp1251') as input:
+        with open(filename + ".mp3", 'wb') as output:
+            for line in input.readlines():
+                if len(line) > 2000:
+                    phrases = line.split(".")
+                else:
+                    phrases = [line]
+                for phrase in phrases:
+                    print("Working with phrase: " + phrase)
+                    url = TextToSpeech.get_speech_url(phrase,
+                                                      emotion=TextToSpeech.Emotion.neutral,
+                                                      speaker=TextToSpeech.Voice.Female.oksana)
+                    sound = TextToSpeech.get_sound_from_url(url)
+                    output.write(sound)
 
-url = TextToSpeech.get_speech_url("Привет, Стас!", emotion=TextToSpeech.Emotion.good)
-sound = TextToSpeech.get_sound_from_url(url)
 
-with open('test.mp3', 'wb') as f:
-    f.write(sound)
+# url = TextToSpeech.get_speech_url("Привет, Стас!", emotion=TextToSpeech.Emotion.good)
+# sound = TextToSpeech.get_sound_from_url(url)
+#
+# with open('test.mp3', 'wb') as f:
+#     f.write(sound)
 
-
+convert_file_to_sound("mars")
