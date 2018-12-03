@@ -15,7 +15,6 @@ class TextToSpeech:
     def __init__(self):
         self.net = self.Network()
         self.key = self.get_key() #"bf4277fc-06c0-405a-b278-b796bbbd3f27"
-        print("KEY ", self.key)
 
     class Voice:
 
@@ -164,7 +163,7 @@ def convert_file_to_sound(filename):
     max_threads = 100
 
     def converter(phrase, index):
-        logging.info("Working with phrase: " + phrase)
+        logging.info("Working with phrase: " + phrase[:-1])
         url = tts.get_speech_url(phrase,
                                  emotion=TextToSpeech.Emotion.neutral,
                                  speaker=TextToSpeech.Voice.Female.oksana)
@@ -175,9 +174,9 @@ def convert_file_to_sound(filename):
 
     def save_results(file):
         nonlocal output_index
-        logging.info(f"Threads: {len(threads)}, sounds: {len(sounds)}. Waiting for phrase {output_index}")
+        logging.info(f"Threads: {len(threads)}, sounds: {len(sounds)}.")
         if output_index not in sounds.keys():
-            logging.info("Next phrase is not ready")
+            logging.info(f"Phrase {output_index} is not ready. Waiting...")
             return
         logging.info("Writing to file...")
         while output_index in sounds.keys():
@@ -200,7 +199,7 @@ def convert_file_to_sound(filename):
                         logging.debug("Empty phrase skipped")
                         continue
 
-                    logging.info(f"Creating thread for phrase {phrase}")
+                    logging.info(f"Creating thread for phrase {phrase[:-1]}")
                     threads[input_index] = Thread(target=converter, args=(phrase, input_index))
 
                     while len(threads) - len(sounds) >= max_working_threads or len(threads) >= max_threads:
