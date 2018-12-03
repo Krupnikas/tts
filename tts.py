@@ -1,6 +1,8 @@
 import requests
 import logging
 import random
+import mmap
+import tqdm
 import re
 
 
@@ -66,8 +68,8 @@ class TextToSpeech:
     @staticmethod
     def get_speech_url(text: str,
                        lang: str = Lang.russian,
-                       speaker: str = Voice.Male.zahar,
-                       emotion: str = Emotion.good,
+                       speaker: str = Voice.Female.oksana,
+                       emotion: str = Emotion.neutral,
                        fmt: str = 'mp3') -> object:
 
         if TextToSpeech.key is not None:
@@ -123,10 +125,19 @@ def get_proxies():
     return proxies
 
 
+def get_num_lines(file_path):
+    fp = open(file_path, "r+")
+    buf = mmap.mmap(fp.fileno(), 0)
+    lines = 0
+    while buf.readline():
+        lines += 1
+    return lines
+
+
 def convert_file_to_sound(filename):
     with open(filename + ".txt", encoding='cp1251') as input:
         with open(filename + ".mp3", 'wb') as output:
-            for line in input.readlines():
+            for line in tqdm.tqdm(input, total=get_num_lines(filename + ".txt")):
                 if len(line) > 2000:
                     phrases = line.split(".")
                 else:
@@ -138,12 +149,5 @@ def convert_file_to_sound(filename):
                                                       speaker=TextToSpeech.Voice.Female.oksana)
                     sound = TextToSpeech.get_sound_from_url(url)
                     output.write(sound)
-
-
-# url = TextToSpeech.get_speech_url("Привет, Стас!", emotion=TextToSpeech.Emotion.good)
-# sound = TextToSpeech.get_sound_from_url(url)
-#
-# with open('test.mp3', 'wb') as f:
-#     f.write(sound)
 
 convert_file_to_sound("mars")
