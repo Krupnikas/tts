@@ -75,7 +75,7 @@ class TextToSpeech:
                 logging.debug("Proxy used: " + str(proxies))
                 try:
                     logging.debug("Making request...")
-                    data = requests.get(url, proxies=proxies)
+                    data = requests.get(url, proxies=proxies, timeout=10)
                     logging.debug("Request done")
                     return data
                 except Exception as e:
@@ -89,6 +89,7 @@ class TextToSpeech:
 
         while attempts > 0:
             attempts -= 1
+            logging.info("Getting key...")
             try:
                 page = self.net.make_request(translate_url).text
                 keys = re.findall(r"SPEECHKIT_KEY: '(.*)'", page)
@@ -159,7 +160,8 @@ def convert_file_to_sound(filename):
     input_index = 0
     output_index = 0
 
-    working_threads_max = 10
+    max_working_threads = 10
+    max_threads = 100
 
     def converter(phrase, index):
         logging.info("Working with phrase: " + phrase)
@@ -173,7 +175,7 @@ def convert_file_to_sound(filename):
 
     def save_results(file):
         nonlocal output_index
-        logging.info(f"Threads: {len(threads)}, sounds: {len(sounds)}")
+        logging.info(f"Threads: {len(threads)}, sounds: {len(sounds)}. Waiting for phrase {output_index}")
         if output_index not in sounds.keys():
             logging.info("Next phrase is not ready")
             return
@@ -201,7 +203,7 @@ def convert_file_to_sound(filename):
                     logging.info(f"Creating thread for phrase {phrase}")
                     threads[input_index] = Thread(target=converter, args=(phrase, input_index))
 
-                    while len(threads) - len(sounds) >= working_threads_max:
+                    while len(threads) - len(sounds) >= max_working_threads or len(threads) >= max_threads:
                         logging.info("Waiting for previous threads...")
                         save_results(output)
                         sleep(1)
@@ -209,10 +211,16 @@ def convert_file_to_sound(filename):
                     threads[input_index].start()
                     input_index += 1
 
+            while len(sounds) > 0:
+                save_results(output)
+                sleep(1)
+
+            logging.info("Done")
+
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    convert_file_to_sound("mars")
+    convert_file_to_sound("test")
 
 
 if __name__ == "__main__":
