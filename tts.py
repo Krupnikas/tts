@@ -8,7 +8,7 @@ import re
 
 class TextToSpeech:
 
-    key = "bf4277fc-06c0-405a-b278-b796bbbd3f27"
+    key = None #"bf4277fc-06c0-405a-b278-b796bbbd3f27"
 
     # Docs: https://tech.yandex.ru/speechkit/cloud/doc/guide/common/speechkit-common-tts-http-request-docpage/
 
@@ -144,10 +144,15 @@ def convert_file_to_sound(filename):
                     phrases = [line]
                 for phrase in phrases:
                     print("Working with phrase: " + phrase)
+                    if len(phrase.strip()) < 1:
+                        print("Empty")
+                        continue
                     url = TextToSpeech.get_speech_url(phrase,
                                                       emotion=TextToSpeech.Emotion.neutral,
                                                       speaker=TextToSpeech.Voice.Female.oksana)
                     sound = TextToSpeech.get_sound_from_url(url)
                     output.write(sound)
+                    print("Done")
+
 
 convert_file_to_sound("mars")
