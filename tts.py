@@ -8,9 +8,11 @@ import re
 
 class TextToSpeech:
 
-    key = None #"bf4277fc-06c0-405a-b278-b796bbbd3f27"
-
     # Docs: https://tech.yandex.ru/speechkit/cloud/doc/guide/common/speechkit-common-tts-http-request-docpage/
+
+    def __init__(self):
+        self.key = self.get_key() #"bf4277fc-06c0-405a-b278-b796bbbd3f27"
+        self.net = self.Network()
 
     class Voice:
 
@@ -37,27 +39,58 @@ class TextToSpeech:
         ukrain = "uk-UK"        # украинский
         turkish = "tr-TR"       # турецкий
 
-    @staticmethod
-    def get_key():
+    class Network(object):
+
+        proxy_list = []
+
+        def update_proxy_list(self):
+            proxies_url = "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt"
+            data = requests.get(proxies_url)
+            lines = data.text.splitlines()[4:-2]
+            self.proxy_list = []
+            for line in lines:
+                if "-S" in line:  # Getting only https proxy
+                    proxy = line.split(" ")[0]
+                    self.proxy_list.append(proxy)
+
+        def make_request(self, url, attempts=5):
+
+            if len(self.proxy_list) == 0:
+                self.update_proxy_list()
+
+            if len(self.proxy_list) == 0:
+                logging.warning("Can't get proxy list. Using my ip")
+
+            while attempts > 0:
+
+                attempts -= 1
+
+                proxies = {
+                    'https': 'http://' + self.proxy_list[random.randint(0, len(self.proxy_list))],
+                }
+
+                logging.debug("Proxy used: " + str(proxies))
+                try:
+                    logging.debug("Making request...")
+                    data = requests.get(url, proxies=proxies)
+                    logging.debug("Request done")
+                    return data
+                except Exception as e:
+                    logging.debug("Network: request exception " + str(e))
+            return None
+
+    def get_key(self):
         translate_url = "https://translate.yandex.com/"
 
         attempts = 5
-        proxy_list = get_proxies()
 
         while attempts > 0:
-
             attempts -= 1
-
-            proxies = {
-                'https': 'http://' + proxy_list[random.randint(0, len(proxy_list))],
-            }
-
-            print("Proxy used: ", proxies)
             try:
-                page = requests.get(translate_url, proxies=proxies).text
+                page = self.net.make_request(translate_url).text
                 keys = re.findall(r"SPEECHKIT_KEY: '(.*)'", page)
                 if len(keys) > 0:
-                    logging.info("Key: " + str(keys[0]))
+                    logging.info("Key found: " + str(keys[0]))
                     return keys[0]
             except Exception as e:
                 logging.debug("TextToSpeech: get_key: exception: " + str(e))
@@ -65,17 +98,12 @@ class TextToSpeech:
         logging.error("TextToSpeech: get_key: No keys found")
         return None
 
-    @staticmethod
-    def get_speech_url(text: str,
+    def get_speech_url(self,
+                       text: str,
                        lang: str = Lang.russian,
                        speaker: str = Voice.Female.oksana,
                        emotion: str = Emotion.neutral,
                        fmt: str = 'mp3') -> object:
-
-        if TextToSpeech.key is not None:
-            tts_key = TextToSpeech.key
-        else:
-            tts_key = TextToSpeech.get_key()
 
         tts_url = f'https://tts.voicetech.yandex.net/generate' \
                   f'?text={text}' \
@@ -83,46 +111,25 @@ class TextToSpeech:
                   f'&lang={lang}' \
                   f'&speaker={speaker}' \
                   f'&emotion={emotion}' \
-                  f'&key={tts_key}'
+                  f'&key={self.key}'
 
         #speed
         #
         return tts_url
 
-    @staticmethod
-    def get_sound_from_url(sound_url):
+    def get_sound_from_url(self, sound_url):
 
         attempts = 5
-        proxy_list = get_proxies()
 
         while attempts > 0:
-
-            attempts -= 1
-
-            proxies = {
-                'https': 'http://' + proxy_list[random.randint(0, len(proxy_list))],
-            }
-
-            logging.info("Proxy used: " + str(proxies))
             try:
                 logging.info("Downloading sound...")
-                data = requests.get(sound_url, proxies=proxies)
+                data = self.net.make_request(sound_url)
+                logging.info("Downloading sound done")
                 return data.content
             except Exception as e:
                 logging.debug("TextToSpeech: get_sound_from_url: request exception " + str(e))
         return None
-
-def get_proxies():
-    proxies_url = "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt"
-    data = requests.get(proxies_url)
-    lines = data.text.splitlines()[4:-2]
-    proxies = []
-    for line in lines:
-        if "-S" in line:
-            proxy = line.split(" ")[0]
-            proxies.append(proxy)
-
-    return proxies
 
 
 def get_num_lines(file_path):
@@ -135,6 +142,7 @@ def get_num_lines(file_path):
 
 
 def convert_file_to_sound(filename):
+    tts = TextToSpeech()
     with open(filename + ".txt", encoding='cp1251') as input:
         with open(filename + ".mp3", 'wb') as output:
             for line in tqdm.tqdm(input, total=get_num_lines(filename + ".txt")):
@@ -147,12 +155,19 @@ def convert_file_to_sound(filename):
                     if len(phrase.strip()) < 1:
                         print("Empty")
                         continue
-                    url = TextToSpeech.get_speech_url(phrase,
-                                                      emotion=TextToSpeech.Emotion.neutral,
-                                                      speaker=TextToSpeech.Voice.Female.oksana)
-                    sound = TextToSpeech.get_sound_from_url(url)
+                    url = tts.get_speech_url(phrase,
+                                             emotion=TextToSpeech.Emotion.neutral,
+                                             speaker=TextToSpeech.Voice.Female.oksana)
+                    sound = tts.get_sound_from_url(url)
                     output.write(sound)
                     print("Done")
 
 
-convert_file_to_sound("mars")
+def main():
+    logging.basicConfig(level=logging.INFO)
+    convert_file_to_sound("mars")
+
+
+
+if __name__ == "__main__":
+    main()
