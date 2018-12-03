@@ -2,8 +2,10 @@ import requests
 import logging
 import random
 import mmap
-import tqdm
+from tqdm import tqdm
+from threading import Thread
 import re
+from time import sleep
 
 
 class TextToSpeech:
@@ -152,29 +154,65 @@ def get_num_lines(file_path):
 
 def convert_file_to_sound(filename):
     tts = TextToSpeech()
+    threads = {}
+    sounds = {}
+    input_index = 0
+    output_index = 0
+
+    working_threads_max = 10
+
+    def converter(phrase, index):
+        logging.info("Working with phrase: " + phrase)
+        url = tts.get_speech_url(phrase,
+                                 emotion=TextToSpeech.Emotion.neutral,
+                                 speaker=TextToSpeech.Voice.Female.oksana)
+
+        sound = tts.get_sound_from_url(url)
+        sounds[index] = sound
+        logging.info("Phrase " + str(index) + " converted")
+
+    def save_results(file):
+        nonlocal output_index
+        logging.info(f"Threads: {len(threads)}, sounds: {len(sounds)}")
+        if output_index not in sounds.keys():
+            logging.info("Next phrase is not ready")
+            return
+        logging.info("Writing to file...")
+        while output_index in sounds.keys():
+            threads[output_index].join()
+            file.write(sounds[output_index])
+            sounds.__delitem__(output_index)
+            threads.__delitem__(output_index)
+            output_index += 1
+        logging.info("Done")
+
     with open(filename + ".txt", encoding='cp1251') as input:
         with open(filename + ".mp3", 'wb') as output:
-            for line in tqdm.tqdm(input, total=get_num_lines(filename + ".txt")):
+            for line in tqdm(input, total=get_num_lines(filename + ".txt")):
                 if len(line) > 2000:    # API limit
                     phrases = line.split(".")
                 else:
                     phrases = [line]
                 for phrase in phrases:
-                    logging.info("Working with phrase: " + phrase)
                     if len(phrase.strip()) < 1:
-                        logging.debug("Empty")
+                        logging.debug("Empty phrase skipped")
                         continue
-                    url = tts.get_speech_url(phrase,
-                                             emotion=TextToSpeech.Emotion.neutral,
-                                             speaker=TextToSpeech.Voice.Female.oksana)
-                    sound = tts.get_sound_from_url(url)
-                    output.write(sound)
-                    logging.info("Done")
+
+                    logging.info(f"Creating thread for phrase {phrase}")
+                    threads[input_index] = Thread(target=converter, args=(phrase, input_index))
+
+                    while len(threads) - len(sounds) >= working_threads_max:
+                        logging.info("Waiting for previous threads...")
+                        save_results(output)
+                        sleep(1)
+
+                    threads[input_index].start()
+                    input_index += 1
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    convert_file_to_sound("test")
+    convert_file_to_sound("mars")
 
 
 if __name__ == "__main__":
