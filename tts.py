@@ -11,8 +11,9 @@ class TextToSpeech:
     # Docs: https://tech.yandex.ru/speechkit/cloud/doc/guide/common/speechkit-common-tts-http-request-docpage/
 
     def __init__(self):
-        self.key = self.get_key() #"bf4277fc-06c0-405a-b278-b796bbbd3f27"
         self.net = self.Network()
+        self.key = self.get_key() #"bf4277fc-06c0-405a-b278-b796bbbd3f27"
+        print("KEY ", self.key)
 
     class Voice:
 
@@ -93,7 +94,7 @@ class TextToSpeech:
                     logging.info("Key found: " + str(keys[0]))
                     return keys[0]
             except Exception as e:
-                logging.debug("TextToSpeech: get_key: exception: " + str(e))
+                logging.warning("TextToSpeech: get_key: exception: " + str(e))
 
         logging.error("TextToSpeech: get_key: No keys found")
         return None
@@ -104,6 +105,10 @@ class TextToSpeech:
                        speaker: str = Voice.Female.oksana,
                        emotion: str = Emotion.neutral,
                        fmt: str = 'mp3') -> object:
+
+        if self.key is None:
+            logging.error("Empty key field")
+            return None
 
         tts_url = f'https://tts.voicetech.yandex.net/generate' \
                   f'?text={text}' \
@@ -120,6 +125,10 @@ class TextToSpeech:
     def get_sound_from_url(self, sound_url):
 
         attempts = 5
+
+        if sound_url is None:
+            logging.error("Wrong sound url")
+            return None
 
         while attempts > 0:
             try:
@@ -146,27 +155,26 @@ def convert_file_to_sound(filename):
     with open(filename + ".txt", encoding='cp1251') as input:
         with open(filename + ".mp3", 'wb') as output:
             for line in tqdm.tqdm(input, total=get_num_lines(filename + ".txt")):
-                if len(line) > 2000:
+                if len(line) > 2000:    # API limit
                     phrases = line.split(".")
                 else:
                     phrases = [line]
                 for phrase in phrases:
-                    print("Working with phrase: " + phrase)
+                    logging.info("Working with phrase: " + phrase)
                     if len(phrase.strip()) < 1:
-                        print("Empty")
+                        logging.debug("Empty")
                         continue
                     url = tts.get_speech_url(phrase,
                                              emotion=TextToSpeech.Emotion.neutral,
                                              speaker=TextToSpeech.Voice.Female.oksana)
                     sound = tts.get_sound_from_url(url)
                     output.write(sound)
-                    print("Done")
+                    logging.info("Done")
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    convert_file_to_sound("mars")
-
+    convert_file_to_sound("test")
 
 
 if __name__ == "__main__":
