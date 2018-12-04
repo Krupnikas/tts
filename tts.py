@@ -120,8 +120,8 @@ class TextToSpeech:
                   f'&emotion={emotion}' \
                   f'&key={self.key}'
 
-        #speed
-        #
+        # speed
+
         return tts_url
 
     def get_sound_from_url(self, sound_url):
@@ -159,8 +159,8 @@ def convert_file_to_sound(filename):
     input_index = 0
     output_index = 0
 
-    max_working_threads = 10
-    max_threads = 100
+    max_working_threads = 100
+    max_threads = 1000
 
     def converter(phrase, index):
         logging.info("Working with phrase: " + phrase[:-1])
@@ -187,7 +187,7 @@ def convert_file_to_sound(filename):
             output_index += 1
         logging.info("Done")
 
-    with open(filename + ".txt", encoding='cp1251') as input:
+    with open(filename + ".txt") as input:
         with open(filename + ".mp3", 'wb') as output:
             for line in tqdm(input, total=get_num_lines(filename + ".txt")):
                 if len(line) > 2000:    # API limit
@@ -219,7 +219,7 @@ def convert_file_to_sound(filename):
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    convert_file_to_sound("test")
+    convert_file_to_sound("hist")
 
 
 if __name__ == "__main__":
